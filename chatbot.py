@@ -74,7 +74,7 @@ with st.sidebar:
 
     st.title("💎 Sapphire")
 
-    # New Chat
+    # New Chat Button
     if st.button("➕ New Chat", use_container_width=True):
 
         new_chat_id = str(uuid.uuid4())
@@ -124,7 +124,7 @@ if st.session_state.location:
 
 else:
 
-    st.caption("📍 Allow browser location access for live weather")
+    st.caption("📍 Allow browser location access")
 
 # ---------------- DISPLAY CHAT ----------------
 
@@ -158,7 +158,7 @@ if prompt:
 
         st.markdown(prompt)
 
-    # Add live location automatically
+    # Add location context automatically
     if (
         "weather" in prompt.lower()
         or "temperature" in prompt.lower()
@@ -171,29 +171,38 @@ if prompt:
         prompt += (
             f"\nUser live coordinates:"
             f" Latitude {lat}, Longitude {lon}."
-            f" Use this for accurate live weather/location answers."
+            f" Use this for live weather and location answers."
         )
 
-    # Assistant response
+    # ---------------- ASSISTANT RESPONSE ----------------
+
     with st.chat_message("assistant"):
 
         placeholder = st.empty()
 
         full_response = ""
 
-        # System prompt
+        # Build conversation history
         api_messages = [
             {
                 "role": "system",
                 "content": (
                     "You are Sapphire by M.H, "
-                    "an intelligent AI assistant with live web knowledge."
+                    "an intelligent AI assistant with live web search access. "
+                    "Remember previous chats and answer naturally."
                 )
             }
         ]
 
         # Add chat history
-        api_messages.extend(messages)
+        for msg in messages:
+
+            api_messages.append(
+                {
+                    "role": msg["role"],
+                    "content": msg["content"]
+                }
+            )
 
         # Add latest prompt
         api_messages.append(
@@ -203,18 +212,19 @@ if prompt:
             }
         )
 
-        # Streaming response
-        stream = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=api_messages,
+        # Streaming web-enabled response
+        stream = client.responses.create(
+            model="gpt-4.1-mini",
+            tools=[{"type": "web_search_preview"}],
+            input=api_messages,
             stream=True
         )
 
-        for chunk in stream:
+        for event in stream:
 
-            if chunk.choices[0].delta.content:
+            if event.type == "response.output_text.delta":
 
-                text = chunk.choices[0].delta.content
+                text = event.delta
 
                 full_response += text
 
