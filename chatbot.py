@@ -1,10 +1,9 @@
-import os
 import streamlit as st
 from openai import OpenAI
 
 # Streamlit page config
 st.set_page_config(
-    page_title="OpenAI Chatbot",
+    page_title="Sana AI Chat Bot",
     page_icon="🤖",
     layout="centered"
 )
@@ -20,7 +19,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 # Title
-st.title("🤖 OpenAI Chatbot")
+st.title("🤖 Sana AI Chat Bot")
 
 # Show previous chat messages
 for message in st.session_state.messages:
@@ -28,7 +27,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 # User input
-prompt = st.chat_input("Ask something...")
+prompt = st.chat_input("Ask Sana AI something...")
 
 if prompt:
 
