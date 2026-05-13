@@ -3,6 +3,7 @@ from openai import OpenAI
 import uuid
 import streamlit.components.v1 as components
 import json
+import os
 
 # ---------------- PAGE CONFIG ----------------
 
@@ -18,23 +19,55 @@ OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# ---------------- FILE STORAGE ----------------
+
+CHAT_FILE = "chat_history.json"
+
+def load_chats():
+
+    if os.path.exists(CHAT_FILE):
+
+        with open(CHAT_FILE, "r") as f:
+
+            return json.load(f)
+
+    return {}
+
+def save_chats(chats):
+
+    with open(CHAT_FILE, "w") as f:
+
+        json.dump(chats, f)
+
 # ---------------- SESSION STATE ----------------
 
 if "chats" not in st.session_state:
-    st.session_state.chats = {}
+
+    st.session_state.chats = load_chats()
 
 if "current_chat" not in st.session_state:
 
-    first_chat_id = str(uuid.uuid4())
+    if st.session_state.chats:
 
-    st.session_state.chats[first_chat_id] = {
-        "title": "New Chat",
-        "messages": []
-    }
+        st.session_state.current_chat = list(
+            st.session_state.chats.keys()
+        )[0]
 
-    st.session_state.current_chat = first_chat_id
+    else:
+
+        first_chat_id = str(uuid.uuid4())
+
+        st.session_state.chats[first_chat_id] = {
+            "title": "New Chat",
+            "messages": []
+        }
+
+        st.session_state.current_chat = first_chat_id
+
+        save_chats(st.session_state.chats)
 
 if "location" not in st.session_state:
+
     st.session_state.location = None
 
 # ---------------- LOCATION DETECTION ----------------
@@ -63,9 +96,13 @@ location_data = components.html(
 
 # Save location
 if location_data:
+
     try:
+
         st.session_state.location = json.loads(location_data)
+
     except:
+
         pass
 
 # ---------------- SIDEBAR ----------------
@@ -74,7 +111,7 @@ with st.sidebar:
 
     st.title("💎 Sapphire")
 
-    # New Chat Button
+    # New Chat
     if st.button("➕ New Chat", use_container_width=True):
 
         new_chat_id = str(uuid.uuid4())
@@ -86,6 +123,8 @@ with st.sidebar:
 
         st.session_state.current_chat = new_chat_id
 
+        save_chats(st.session_state.chats)
+
         st.rerun()
 
     st.divider()
@@ -93,13 +132,49 @@ with st.sidebar:
     # Chat History
     for chat_id, chat_data in st.session_state.chats.items():
 
-        chat_title = chat_data["title"]
+        col1, col2 = st.columns([4, 1])
 
-        if st.button(chat_title, key=chat_id, use_container_width=True):
+        with col1:
 
-            st.session_state.current_chat = chat_id
+            if st.button(
+                chat_data["title"],
+                key=chat_id,
+                use_container_width=True
+            ):
 
-            st.rerun()
+                st.session_state.current_chat = chat_id
+
+                st.rerun()
+
+        # Delete Chat
+        with col2:
+
+            if st.button("🗑️", key=f"delete_{chat_id}"):
+
+                del st.session_state.chats[chat_id]
+
+                save_chats(st.session_state.chats)
+
+                if st.session_state.chats:
+
+                    st.session_state.current_chat = list(
+                        st.session_state.chats.keys()
+                    )[0]
+
+                else:
+
+                    new_chat_id = str(uuid.uuid4())
+
+                    st.session_state.chats[new_chat_id] = {
+                        "title": "New Chat",
+                        "messages": []
+                    }
+
+                    st.session_state.current_chat = new_chat_id
+
+                    save_chats(st.session_state.chats)
+
+                st.rerun()
 
 # ---------------- CURRENT CHAT ----------------
 
@@ -152,6 +227,8 @@ if prompt:
     if current_chat["title"] == "New Chat":
 
         current_chat["title"] = prompt[:30]
+
+    save_chats(st.session_state.chats)
 
     # Display user message
     with st.chat_message("user"):
@@ -212,7 +289,7 @@ if prompt:
             }
         )
 
-        # Streaming web-enabled response
+        # Streaming response with web search
         stream = client.responses.create(
             model="gpt-4.1-mini",
             tools=[{"type": "web_search_preview"}],
@@ -239,3 +316,6 @@ if prompt:
             "content": full_response
         }
     )
+
+    # Save permanently
+    save_chats(st.session_state.chats)
